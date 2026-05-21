@@ -51,6 +51,10 @@ class WeatherProfilerApp(tk.Tk):
 
     def __init__(self) -> None:
         super().__init__()
+        # Language variables must exist before any localized text is requested.
+        self.ui_language_var = tk.StringVar(value="zh")
+        self.language_display_var = tk.StringVar(value="中文")
+
         self.title(self._L("Airport Weather Profiler - 人类用机场天气统计器", "Airport Weather Profiler"))
         self.geometry("1180x820")
         self.minsize(1040, 720)
@@ -61,8 +65,6 @@ class WeatherProfilerApp(tk.Tk):
         self.cancel_requested = False
         self.preview_images: list[tk.PhotoImage] = []
         self.last_result_path: Path | None = None
-        self.ui_language_var = tk.StringVar(value="zh")
-        self.language_display_var = tk.StringVar(value="中文")
 
         # Core user fields
         self.single_airport_var = tk.StringVar(value="RJCC")
