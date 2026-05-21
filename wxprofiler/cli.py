@@ -77,7 +77,7 @@ def default_start(years: int) -> date:
 
 
 def emit_progress(percent: int, message: str) -> None:
-    safe_safe_print(f"WXPROGRESS:{percent}:{message}", flush=True)
+    safe_print(f"WXPROGRESS:{percent}:{message}", flush=True)
 
 
 def _coverage_for(obs, start: date, end: date) -> float:
