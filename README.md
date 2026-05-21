@@ -471,7 +471,8 @@ The GUI, HTML, PDF, CSV tables, comparison reports, and `simulatorProfile.gustRi
 
 ## Relationship to ATC Radar Simulator
 
-This tool is intended as a companion data-generation utility for ATC Radar Simulator.
+This tool is intended as a companion data-generation utility for 
+[ATC Radar Simulator](https://github.com/Qishop1/atc-radar-sim).
 
 The simulator should not download 10-year or 20-year historical weather data at runtime. Instead:
 
