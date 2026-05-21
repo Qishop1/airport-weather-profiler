@@ -1,0 +1,46 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy matplotlib pyyaml requests pillow reportlab pyinstaller
+
+      - name: Build portable EXE
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --windowed --onedir --name AirportWeatherProfiler AirportWeatherProfiler.pyw
+
+      - name: Copy project files
+        shell: pwsh
+        run: |
+          if (Test-Path configs) { Copy-Item configs dist\AirportWeatherProfiler\configs -Recurse -Force }
+          if (Test-Path README.md) { Copy-Item README.md dist\AirportWeatherProfiler\README.md -Force }
+          if (Test-Path UI_README.md) { Copy-Item UI_README.md dist\AirportWeatherProfiler\UI_README.md -Force }
+          if (Test-Path NO_PYTHON_WINDOWS_README.md) { Copy-Item NO_PYTHON_WINDOWS_README.md dist\AirportWeatherProfiler\NO_PYTHON_WINDOWS_README.md -Force }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AirportWeatherProfiler-Windows-Portable
+          path: dist/AirportWeatherProfiler
