@@ -31,6 +31,7 @@ The GUI supports:
 - HTML/PDF report opening
 - progress display
 - canceling long-running jobs
+- Chinese / English UI language switching
 
 If you are using the packaged Windows version, no Python installation is required.
 
@@ -158,7 +159,7 @@ runway crosswind / tailwind risk
 
 ## GUI behavior
 
-The desktop GUI launches long-running profile jobs in a separate backend process.
+The desktop GUI supports Chinese / English interface switching and launches long-running profile jobs in a separate backend process.
 
 This allows the UI to:
 
