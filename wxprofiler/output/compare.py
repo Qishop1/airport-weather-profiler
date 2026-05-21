@@ -36,7 +36,8 @@ def compare_rows(profiles: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "fog_mist": round((wr.get("fog", 0) or 0) + (wr.get("mist", 0) or 0), 4),
             "gust_data_available": ws.get("gustDataAvailableRate"),
             "gust_reliable": ws.get("gustReliable"),
-            "gust_over_20kt": ws.get("gustOver20ktRate") if ws.get("gustReliable") else None,
+            "gust_over_20kt_observed": ws.get("gustOver20ktObservedRate", ws.get("gustOver20ktRate")) if ws.get("gustReliable") else None,
+            "gust_over_20kt_conditional": ws.get("gustOver20ktConditionalRate") if ws.get("gustReliable") else None,
             "median_wind_kt": ws.get("medianWindKt"),
             "p90_wind_kt": ws.get("p90WindKt"),
         })

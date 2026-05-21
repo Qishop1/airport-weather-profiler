@@ -115,7 +115,7 @@ def plot_hourly_ifr_lifr(profile: dict[str, Any], path: Path) -> None:
     vis5000 = [hourly.get(h, {}).get("visibilityStats", {}).get("below5000mRate", 0) * 100 for h in hours]
     cig1000 = [hourly.get(h, {}).get("ceilingStats", {}).get("below1000ftRate", 0) * 100 for h in hours]
     gust_reliable = any(hourly.get(h, {}).get("windStats", {}).get("gustReliable") for h in hours)
-    gust = [hourly.get(h, {}).get("windStats", {}).get("gustOver20ktRate", 0) * 100 for h in hours]
+    gust = [hourly.get(h, {}).get("windStats", {}).get("gustOver20ktObservedRate", hourly.get(h, {}).get("windStats", {}).get("gustOver20ktRate", 0)) * 100 for h in hours]
 
     fig, ax = plt.subplots(figsize=(10.5, 5.4))
     ax.plot(hours, ifr_low, marker="o", label="IFR + LIFR")
@@ -123,7 +123,7 @@ def plot_hourly_ifr_lifr(profile: dict[str, Any], path: Path) -> None:
     ax.plot(hours, vis5000, marker="o", label="VIS <5000 m")
     ax.plot(hours, cig1000, marker="o", label="CIG <1000 ft")
     if gust_reliable:
-        ax.plot(hours, gust, marker="o", label="Gust >20 kt")
+        ax.plot(hours, gust, marker="o", label="Gust >20 kt (all obs)")
     ax.set_ylabel("Observation share %")
     ax.set_xlabel("Local hour")
     ax.set_title(f"{profile['airport']['icao']} Local-hour operational weather risk")

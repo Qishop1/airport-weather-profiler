@@ -87,7 +87,7 @@ def write_html_report(profile: dict[str, Any], path: Path) -> None:
         mvs = s.get("visibilityStats", {})
         mcs = s.get("ceilingStats", {})
         mws = s.get("windStats", {})
-        gust_text = _pct(mws.get("gustOver20ktRate", 0)) if mws.get("gustReliable") else "unavailable"
+        gust_text = _pct(mws.get("gustOver20ktObservedRate", mws.get("gustOver20ktRate", 0))) if mws.get("gustReliable") else "unavailable"
         monthly_rows.append([
             m,
             s.get("sampleCount", 0),
@@ -131,7 +131,7 @@ def write_html_report(profile: dict[str, Any], path: Path) -> None:
         ("CIG <1000 ft", _pct(cs.get("below1000ftRate", 0))),
         ("Snow", _pct(wr.get("snow", 0))),
         ("Fog + Mist", _pct(wr.get("fog", 0) + wr.get("mist", 0))),
-        ("Gust", _pct(ws.get("gustOver20ktRate", 0)) if ws.get("gustReliable") else "unavailable"),
+        ("Gust >20 kt", _pct(ws.get("gustOver20ktObservedRate", ws.get("gustOver20ktRate", 0))) if ws.get("gustReliable") else "unavailable"),
     ]
 
     body = f"""
@@ -168,7 +168,7 @@ pre {{ background: #111; color: #eee; padding: 14px; border-radius: 10px; overfl
     for label, value in cards:
         body += f"  <div class='card'><b>{html.escape(str(label))}</b><span>{html.escape(str(value))}</span></div>\n"
     body += "</div>\n"
-    body += "<p class='note'>Visibility and ceiling are threshold-based in this report. Visibility median is not used as a primary metric because aviation visibility is commonly capped at 9999 / 10 km+.</p>"
+    body += "<p class='note'>Visibility and ceiling are threshold-based in this report. Visibility median is not used as a primary metric because aviation visibility is commonly capped at 9999 / 10 km+.</p><p class='note'>Gust is reported as an all-observation probability. Conditional gust rates are retained in JSON/CSV only as diagnostics for the subset where a gust was explicitly reported.</p>"
 
     interp = _interpretation(profile)
     if interp:
@@ -178,7 +178,7 @@ pre {{ background: #111; color: #eee; padding: 14px; border-radius: 10px; overfl
     if q.get("info"):
         body += "<section class='info'><h2>Data notes</h2><ul>" + "".join(f"<li>{html.escape(str(w))}</li>" for w in q.get("info", [])) + "</ul></section>"
     body += "<section><h2>Charts</h2>" + "\n".join(chart_html) + "</section>"
-    body += "<section><h2>Monthly operating summary</h2>" + _table(monthly_rows, ["Month", "Samples", "VFR", "MVFR", "IFR", "LIFR", "10km+", "VIS<5000", "VIS<1600", "CIG<3000", "CIG<1000", "Snow", "Rain", "FG+BR", "Gust>20", "P90 wind"]) + "</section>"
+    body += "<section><h2>Monthly operating summary</h2>" + _table(monthly_rows, ["Month", "Samples", "VFR", "MVFR", "IFR", "LIFR", "10km+", "VIS<5000", "VIS<1600", "CIG<3000", "CIG<1000", "Snow", "Rain", "FG+BR", "Gust>20 all obs", "P90 wind"]) + "</section>"
     if runway_rows:
         body += "<section><h2>Runway wind-risk summary</h2>" + _table(runway_rows, ["Runway", "Heading", "Median HW", "Median XW", "TW >5", "TW >10", "XW >15", "XW >20", "XW >25"]) + "</section>"
     body += "<section><h2>Station / fallback report</h2><pre>" + html.escape(json.dumps(station_report, ensure_ascii=False, indent=2)) + "</pre></section>"

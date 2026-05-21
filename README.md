@@ -114,6 +114,13 @@ The merge and deduplication process is written under:
 mergeReport
 ```
 
+
+### IEM polite mode
+
+IEM is always accessed through polite mode when it is enabled. The downloader waits at least 1.35 seconds between uncached IEM requests and retries rate-limited responses with 30 / 60 / 120 / 240 second backoff. This is intentional because IEM applies per-IP throttling and shared office/GitHub IPs can trigger HTTP 429.
+
+IEM is still not enabled by default in `auto` mode. The normal default remains NOAA ISD first. Enable IEM only when you want METAR-native enrichment or when you choose the `iem` source directly.
+
 ## Why not Aviation Weather Center API?
 
 Aviation Weather Center data is good for live or recent aviation weather. It is not the correct source for 10-year or 20-year climatological airport profiles because its public weather database access is short-range, not a long-term archive.
@@ -440,6 +447,17 @@ Batch mode creates individual profiles and then a batch comparison report:
 ```powershell
 python -m wxprofiler.cli batch airports.txt --years 10
 ```
+
+
+### Gust statistics are all-observation probabilities
+
+Gust is handled carefully because METAR/ASOS gust fields are event-style fields: a gust value is normally present only when a gust is explicitly reported. The profiler therefore exports both all-observation and conditional rates:
+
+- `gustReportedRate` / `gustDataAvailableRate`: share of all observations where a gust field exists.
+- `gustOver20ktObservedRate`: share of all observations where reported gust is greater than 20 kt. This is the correct simulator risk value.
+- `gustOver20ktConditionalRate`: share of reported-gust observations where gust is greater than 20 kt. This is only a diagnostic subset metric and should not be used as the simulator weather probability.
+
+The GUI, HTML, PDF, CSV tables, comparison reports, and `simulatorProfile.gustRisk` use the all-observation observed rate. Older builds used the conditional rate in some places; this was misleading and has been corrected.
 
 ## Notes and limitations
 

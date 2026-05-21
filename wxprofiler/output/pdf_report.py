@@ -43,13 +43,13 @@ def write_pdf_report(profile: dict[str, Any], path: Path) -> None:
     story.append(Paragraph("Visibility is summarized by threshold rates because aviation visibility is commonly capped at 9999 / 10 km+.", styles["BodyText"]))
     story.append(Spacer(1, 0.15 * inch))
 
-    gust_label = _pct(ws.get("gustOver20ktRate", 0)) if ws.get("gustReliable") else "unavailable"
+    gust_label = _pct(ws.get("gustOver20ktObservedRate", ws.get("gustOver20ktRate", 0))) if ws.get("gustReliable") else "unavailable"
     summary = [
         ["Samples", q.get("sampleCount", 0), "Hour coverage", _pct(q.get("hourCoverageRate", q.get("coverageRate", 0)))],
         ["VFR", _pct(o.get("vfrRate", 0)), "IFR+LIFR", _pct((o.get("ifrRate", 0) or 0) + (o.get("lifrRate", 0) or 0))],
         ["VIS <5000m", _pct(vs.get("below5000mRate", 0)), "CIG <1000ft", _pct(cs.get("below1000ftRate", 0))],
         ["Snow", _pct(wr.get("snow", 0)), "FG+BR", _pct((wr.get("fog", 0) or 0) + (wr.get("mist", 0) or 0))],
-        ["P90 wind", ws.get("p90WindKt"), "Gust >20kt", gust_label],
+        ["P90 wind", ws.get("p90WindKt"), "Gust >20kt all obs", gust_label],
     ]
     t = Table(summary, hAlign="LEFT", colWidths=[1.4*inch, 1.4*inch, 1.4*inch, 1.4*inch])
     t.setStyle(TableStyle([

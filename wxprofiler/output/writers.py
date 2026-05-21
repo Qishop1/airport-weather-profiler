@@ -37,7 +37,11 @@ def write_markdown_report(profile: dict[str, Any], path: Path) -> None:
     vs = o.get("visibilityStats", {})
     cs = o.get("ceilingStats", {})
     ws = o.get("windStats", {})
-    gust_summary = f"gust >20 kt {ws.get('gustOver20ktRate',0):.2%}" if ws.get("gustReliable") else "gust data unavailable / not reliable"
+    gust_summary = (
+        f"gust reported {ws.get('gustReportedRate', ws.get('gustDataAvailableRate',0)):.2%}; "
+        f"gust >20 kt {ws.get('gustOver20ktObservedRate', ws.get('gustOver20ktRate',0)):.2%} of all observations; "
+        f"conditional {ws.get('gustOver20ktConditionalRate',0):.2%} when gust is reported"
+    ) if ws.get("gustReliable") else "gust data unavailable / not reliable"
 
     lines = [
         f"# {airport} Weather Profile",
@@ -98,10 +102,10 @@ def write_markdown_report(profile: dict[str, Any], path: Path) -> None:
         lines.append("- Fog/mist appears frequently enough to justify local-hour low-visibility templates.")
     if not ws.get("gustReliable"):
         lines.append("- Gust field is unavailable or too sparse; do not interpret gust as 0%.")
-    elif ws.get("gustOver20ktRate", 0) >= 0.15:
-        lines.append("- Gust >20 kt rate is high enough to affect runway selection, final spacing, and stabilized-approach failures.")
+    elif ws.get("gustOver20ktObservedRate", ws.get("gustOver20ktRate", 0)) >= 0.03:
+        lines.append("- Observed gust >20 kt rate is high enough to affect runway selection, final spacing, and stabilized-approach failures.")
 
-    lines += ["", "## Monthly summary", "", "| Month | Samples | VFR | MVFR | IFR | LIFR | 10km+ | VIS<5000 | VIS<1600 | CIG<3000 | CIG<1000 | Snow | Rain | Fog/Mist | Gust>20 | P90 wind |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+    lines += ["", "## Monthly summary", "", "| Month | Samples | VFR | MVFR | IFR | LIFR | 10km+ | VIS<5000 | VIS<1600 | CIG<3000 | CIG<1000 | Snow | Rain | Fog/Mist | Gust>20 all obs | P90 wind |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for m, s in profile.get("monthly", {}).items():
         if not s or s.get("sampleCount", 0) == 0:
             continue
@@ -110,6 +114,6 @@ def write_markdown_report(profile: dict[str, Any], path: Path) -> None:
         mcs = s.get("ceilingStats", {})
         mws = s.get("windStats", {})
         fogmist = wr.get("fog", 0) + wr.get("mist", 0)
-        gust = f"{mws.get('gustOver20ktRate',0):.1%}" if mws.get("gustReliable") else "n/a"
+        gust = f"{mws.get('gustOver20ktObservedRate', mws.get('gustOver20ktRate',0)):.1%}" if mws.get("gustReliable") else "n/a"
         lines.append(f"| {m} | {s.get('sampleCount',0)} | {s.get('vfrRate',0):.1%} | {s.get('mvfrRate',0):.1%} | {s.get('ifrRate',0):.1%} | {s.get('lifrRate',0):.1%} | {mvs.get('cappedOr10kmPlusRate',0):.1%} | {mvs.get('below5000mRate',0):.1%} | {mvs.get('below1600mRate',0):.1%} | {mcs.get('below3000ftRate',0):.1%} | {mcs.get('below1000ftRate',0):.1%} | {wr.get('snow',0):.1%} | {wr.get('rain',0):.1%} | {fogmist:.1%} | {gust} | {mws.get('p90WindKt')} kt |")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

@@ -112,10 +112,10 @@ def build_observations_with_report(args, airport: str, cfg):
 
     def try_iem(required: bool = False):
         try:
-            emit_progress(12, "尝试 IEM ASOS/METAR 数据源")
+            emit_progress(12, "尝试 IEM ASOS/METAR 数据源（Polite Mode：慢速请求，429 自动退避）")
             rows = iem_download_range(airport, args.start, args.end, cache_dir, force=args.force)
             obs = [normalize_iem(r, cfg.timezone) for r in rows]
-            attempts.append(_source_attempt("iem_asos", "ok" if obs else "empty", len(obs), station=airport, match="exact_icao"))
+            attempts.append(_source_attempt("iem_asos", "ok" if obs else "empty", len(obs), station=airport, match="exact_icao", politeMode=True, minIntervalSeconds=1.35, retryWaitSeconds=[30, 60, 120, 240]))
             if obs:
                 groups.append(("iem_asos", obs))
             emit_progress(24, f"IEM 完成：{len(obs)} 条观测")
@@ -195,9 +195,11 @@ def build_observations_with_report(args, airport: str, cfg):
         try_noaa()
 
         high_obs = [o for _, obs in groups for o in obs]
-        if getattr(args, "include_iem", False):
-            # Optional METAR enrichment. It may fail with 429; if so, NOAA/other
-            # sources remain usable and the warning explains the rate limit.
+        if getattr(args, "include_iem", False) or getattr(args, "merge_all_sources", False):
+            # Optional METAR enrichment / full-source mode. IEM is fetched with
+            # polite throttling and retry, but may still fail on shared IPs.
+            # If it fails, NOAA/other sources remain usable and the warning
+            # explains the rate limit.
             try_iem()
             high_obs = [o for _, obs in groups for o in obs]
 
@@ -221,7 +223,7 @@ def build_observations_with_report(args, airport: str, cfg):
     failed = [a for a in attempts if a.get("status") == "failed"]
     if failed:
         if any(a.get("source") == "iem_asos" and "429" in str(a.get("error", "")) for a in failed):
-            warnings.append("IEM ASOS/METAR was rate-limited with HTTP 429. NOAA ISD/Meteostat fallback data was used when available. You can leave IEM disabled in auto mode.")
+            warnings.append("IEM ASOS/METAR was rate-limited with HTTP 429 even in polite mode. NOAA ISD/Meteostat fallback data was used when available. Wait a while before retrying IEM on shared IP networks.")
         else:
             warnings.append("At least one source failed. See stationResolution.attempts for details.")
     report = {"requestedAirport": airport, "mode": source, "attempts": attempts, "selectedSources": selected, "warnings": warnings}
@@ -401,7 +403,7 @@ def command_compare(args) -> None:
     write_compare_html(profiles, html_path, charts)
     safe_print(f"Compare CSV:  {csv_path}")
     safe_print(f"Compare HTML: {html_path}")
-    safe_print("airport,samples,coverage,vfr,mvfr,ifr,lifr,snow,rain,fog_mist,gust")
+    safe_print("airport,samples,coverage,vfr,mvfr,ifr,lifr,snow,rain,fog_mist,gust_over20kt_observed")
     emit_progress(100, "对比完成")
     for p in profiles:
         o = p["overall"]
@@ -409,7 +411,7 @@ def command_compare(args) -> None:
         safe_print(",".join(map(str, [
             p["airport"]["icao"], p["quality"]["sampleCount"], p["quality"]["coverageRate"],
             o["vfrRate"], o["mvfrRate"], o["ifrRate"], o["lifrRate"],
-            wr["snow"], wr["rain"], round(wr.get("fog", 0) + wr.get("mist", 0), 4), o["gustRate"],
+            wr["snow"], wr["rain"], round(wr.get("fog", 0) + wr.get("mist", 0), 4), o.get("windStats", {}).get("gustOver20ktObservedRate"),
         ])))
 
 
@@ -428,8 +430,8 @@ def add_common(p):
     p.add_argument("--no-html", action="store_true", help="Skip HTML report generation")
     p.add_argument("--no-pdf", action="store_true", help="Skip PDF report generation")
     p.add_argument("--no-auto-runways", dest="auto_runways", action="store_false", help="Disable OurAirports runway/airport resolver")
-    p.add_argument("--merge-all-sources", action="store_true", help="In auto mode, also pull lower-priority fallback sources even when coverage is already strong")
-    p.add_argument("--include-iem", action="store_true", help="In auto mode, also try IEM ASOS/METAR. Disabled by default because IEM often returns HTTP 429 rate limits on long jobs.")
+    p.add_argument("--merge-all-sources", action="store_true", help="In auto mode, try all available sources: NOAA ISD + IEM/METAR + Meteostat, then merge/deduplicate by source priority")
+    p.add_argument("--include-iem", action="store_true", help="In auto mode, also try IEM ASOS/METAR using default polite mode: >=1.35s between requests plus 30/60/120/240s retry backoff for 429/503 errors.")
     p.add_argument("--fallback-coverage", type=float, default=0.85, help="Auto-mode coverage threshold below which Meteostat fallback is attempted")
     p.set_defaults(auto_runways=True, compare_report=True)
 

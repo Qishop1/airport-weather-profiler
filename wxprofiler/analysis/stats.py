@@ -127,9 +127,19 @@ def ceiling_stats(obs: list[Observation]) -> dict[str, Any]:
 
 def wind_stats(obs: list[Observation]) -> dict[str, Any]:
     speeds = [o.wind_speed_kt for o in obs]
-    gusts = [o.wind_gust_kt for o in obs if o.wind_gust_kt is not None and math.isfinite(float(o.wind_gust_kt))]
+    gusts = [float(o.wind_gust_kt) for o in obs if o.wind_gust_kt is not None and math.isfinite(float(o.wind_gust_kt))]
     total = len(obs)
     gust_available = len(gusts)
+    gust_over_20 = sum(1 for v in gusts if v > 20)
+    gust_over_30 = sum(1 for v in gusts if v > 30)
+
+    # METAR/ASOS gusts are event-style fields: the field is usually omitted
+    # unless a gust is present. Therefore there are two different rates:
+    #   observed/all-sample rate: P(gust > threshold) across all observations
+    #   conditional rate: P(gust > threshold | a gust was reported)
+    # The observed/all-sample rate is the correct simulator/weather-risk rate.
+    # The conditional rate is kept only as a diagnostic for the reported gust subset.
+    reliable = gust_available >= max(100, int(total * 0.01)) if total else False
     return {
         "medianWindKt": med(speeds),
         "p75WindKt": percentile(speeds, 0.75),
@@ -137,10 +147,18 @@ def wind_stats(obs: list[Observation]) -> dict[str, Any]:
         "windOver15ktRate": rate(obs, lambda o: o.wind_speed_kt is not None and o.wind_speed_kt > 15),
         "windOver25ktRate": rate(obs, lambda o: o.wind_speed_kt is not None and o.wind_speed_kt > 25),
         "gustDataAvailableRate": pct(gust_available, total),
+        "gustReportedRate": pct(gust_available, total),
         "gustAvailableCount": gust_available,
-        "gustReliable": gust_available >= max(100, int(total * 0.01)) if total else False,
-        "gustOver20ktRate": pct(sum(1 for v in gusts if v > 20), gust_available),
-        "gustOver30ktRate": pct(sum(1 for v in gusts if v > 30), gust_available),
+        "gustReliable": reliable,
+        "gustOver20ktObservedRate": pct(gust_over_20, total),
+        "gustOver30ktObservedRate": pct(gust_over_30, total),
+        "gustOver20ktConditionalRate": pct(gust_over_20, gust_available),
+        "gustOver30ktConditionalRate": pct(gust_over_30, gust_available),
+        # Backward-compatible names. These now mean all-observation rates,
+        # not conditional rates. Older builds used these incorrectly.
+        "gustOver20ktRate": pct(gust_over_20, total),
+        "gustOver30ktRate": pct(gust_over_30, total),
+        "gustDataMode": "explicit_reported_gust_field",
     }
 
 
@@ -286,7 +304,7 @@ def archetypes(obs: list[Observation]) -> list[dict[str, Any]]:
             impact.append("instrument/low-ceiling operations likely")
         if wr.get("snow", 0) > .05:
             impact.append("snow or runway contamination risk")
-        if s.get("windStats", {}).get("gustReliable") and s.get("windStats", {}).get("gustOver20ktRate", 0) > .15:
+        if s.get("windStats", {}).get("gustReliable") and s.get("windStats", {}).get("gustOver20ktObservedRate", s.get("windStats", {}).get("gustOver20ktRate", 0)) > .03:
             impact.append("gusty wind and spacing instability")
         if s.get("visibilityStats", {}).get("below5000mRate", 0) > .10:
             impact.append("low-visibility risk")
@@ -321,7 +339,7 @@ def full_profile(airport: str, obs: list[Observation], cfg: AirportConfig, start
         hourly[f"{h:02d}"] = summarize_group(by_hour.get(h, []), wind_sector_size) if by_hour.get(h) else {"sampleCount": 0}
     sources = Counter(o.source for o in obs)
     return {
-        "schemaVersion": "1.1",
+        "schemaVersion": "1.2",
         "airport": {
             "icao": airport.upper(),
             "timezone": cfg.timezone,
@@ -360,7 +378,12 @@ def simulator_profile(monthly: dict[str, Any]) -> dict[str, Any]:
             "rainRisk": wr.get("rain", 0),
             "fogMistRisk": round(wr.get("fog", 0) + wr.get("mist", 0), 4),
             "thunderRisk": wr.get("thunder", 0),
-            "gustRisk": ws.get("gustOver20ktRate", 0) if ws.get("gustReliable") else None,
+            # All-observation gust probability for simulator weather generation.
+            "gustRisk": ws.get("gustOver20ktObservedRate", ws.get("gustOver20ktRate", 0)) if ws.get("gustReliable") else None,
+            "gustOver20ktObservedRate": ws.get("gustOver20ktObservedRate", ws.get("gustOver20ktRate", 0)),
+            "gustOver30ktObservedRate": ws.get("gustOver30ktObservedRate", ws.get("gustOver30ktRate", 0)),
+            "gustOver20ktConditionalRate": ws.get("gustOver20ktConditionalRate", 0),
+            "gustOver30ktConditionalRate": ws.get("gustOver30ktConditionalRate", 0),
             "gustDataAvailableRate": ws.get("gustDataAvailableRate", 0),
             "visibilityBelow5000mRisk": vs.get("below5000mRate", 0),
             "visibilityBelow1600mRisk": vs.get("below1600mRate", 0),

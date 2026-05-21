@@ -245,7 +245,7 @@ class WeatherProfilerApp(tk.Tk):
         source.pack(fill="x", pady=10)
         ttk.Label(source, text=self._L("数据源策略", "Source strategy")).grid(row=0, column=0, sticky="w", padx=8, pady=8)
         ttk.Combobox(source, textvariable=self.source_var, values=["auto", "iem", "noaa-isd", "meteostat", "local"], width=14, state="readonly").grid(row=0, column=1, sticky="w", padx=8, pady=8)
-        ttk.Label(source, text=self._L("auto 默认 NOAA ISD 优先；IEM 容易 429，默认不碰。", "auto uses NOAA ISD first. IEM often returns 429 and is disabled by default."), style="Small.TLabel").grid(row=0, column=2, sticky="w", padx=8)
+        ttk.Label(source, text=self._L("auto 默认 NOAA ISD 优先；IEM 默认不碰；勾选 IEM 后会自动使用 Polite Mode。", "auto uses NOAA ISD first. IEM is disabled by default; when enabled it uses polite mode automatically."), style="Small.TLabel").grid(row=0, column=2, sticky="w", padx=8)
         ttk.Label(source, text=self._L("本地 CSV", "Local CSV")).grid(row=1, column=0, sticky="w", padx=8, pady=8)
         ttk.Entry(source, textvariable=self.local_file_var).grid(row=1, column=1, columnspan=2, sticky="ew", padx=8, pady=8)
         ttk.Button(source, text=self._L("选择 CSV", "Choose CSV"), command=lambda: self._choose_file(self.local_file_var, [("CSV files", "*.csv"), ("All files", "*.*")])).grid(row=1, column=3, padx=8, pady=8)
@@ -265,8 +265,8 @@ class WeatherProfilerApp(tk.Tk):
         runway.pack(fill="x", pady=10)
         ttk.Checkbutton(runway, text=self._L("自动读取跑道数据库", "Auto runway database"), variable=self.auto_runways_var).grid(row=0, column=0, sticky="w", padx=8, pady=8)
         ttk.Checkbutton(runway, text=self._L("强制重新下载源数据", "Force re-download"), variable=self.force_var).grid(row=0, column=1, sticky="w", padx=8, pady=8)
-        ttk.Checkbutton(runway, text=self._L("强制合并所有来源", "Merge all sources"), variable=self.merge_all_var).grid(row=0, column=2, sticky="w", padx=8, pady=8)
-        ttk.Checkbutton(runway, text=self._L("尝试 IEM/METAR（可能429）", "Try IEM/METAR (may return 429)"), variable=self.include_iem_var).grid(row=0, column=3, sticky="w", padx=8, pady=8)
+        ttk.Checkbutton(runway, text=self._L("整合所有可用来源", "Merge all available sources"), variable=self.merge_all_var).grid(row=0, column=2, sticky="w", padx=8, pady=8)
+        ttk.Checkbutton(runway, text=self._L("单独尝试 IEM/METAR（默认 Polite Mode，较慢但少 429）", "Try IEM/METAR with default polite mode (slower, fewer 429s)"), variable=self.include_iem_var).grid(row=0, column=3, sticky="w", padx=8, pady=8)
         ttk.Label(runway, text=self._L("风向扇区", "Wind sector")).grid(row=1, column=0, sticky="w", padx=8, pady=8)
         ttk.Combobox(runway, textvariable=self.wind_sector_var, values=["10", "20", "30", "45"], width=8, state="readonly").grid(row=1, column=1, sticky="w", padx=8, pady=8)
         ttk.Label(runway, text=self._L("手工跑道 YAML", "Manual runway YAML")).grid(row=2, column=0, sticky="w", padx=8, pady=8)
@@ -301,7 +301,7 @@ class WeatherProfilerApp(tk.Tk):
         ttk.Checkbutton(box, text=self._L("HTML 报告", "HTML report"), variable=self.html_var).grid(row=0, column=1, sticky="w", padx=8, pady=8)
         ttk.Checkbutton(box, text=self._L("PDF 报告", "PDF report"), variable=self.pdf_var).grid(row=0, column=2, sticky="w", padx=8, pady=8)
         ttk.Checkbutton(box, text=self._L("自动跑道数据库", "Auto runway database"), variable=self.auto_runways_var).grid(row=0, column=3, sticky="w", padx=8, pady=8)
-        ttk.Label(box, text=self._L("默认走 NOAA ISD，不再自动尝试 IEM，避免 HTTP 429。需要本地 CSV 或手工跑道时去“数据与输出设置”。", "Default source is NOAA ISD. IEM is not tried automatically to avoid HTTP 429. Use Data & Output for local CSV or manual runway YAML."), style="Small.TLabel").grid(row=1, column=0, columnspan=4, sticky="w", padx=8, pady=(0, 8))
+        ttk.Label(box, text=self._L("默认走 NOAA ISD，不自动尝试 IEM。需要 METAR 细节时勾选 IEM，程序会用 Polite Mode 慢速请求。", "Default source is NOAA ISD. IEM is not tried automatically. Enable IEM for METAR detail; polite mode is used automatically."), style="Small.TLabel").grid(row=1, column=0, columnspan=4, sticky="w", padx=8, pady=(0, 8))
 
     def _intro(self, parent: ttk.Frame, title: str, body: str) -> None:
         ttk.Label(parent, text=title, font=("Segoe UI", 14, "bold")).pack(anchor="w")
@@ -546,6 +546,7 @@ class WeatherProfilerApp(tk.Tk):
 
     def _translate_progress_message(self, msg: str) -> str:
         mapping = {
+            "尝试 IEM ASOS/METAR 数据源（Polite Mode：慢速请求，429 自动退避）": "Trying IEM ASOS/METAR source (polite mode: throttled requests, 429 backoff)",
             "尝试 IEM ASOS/METAR 数据源": "Trying IEM ASOS/METAR source",
             "尝试 NOAA ISD 全球历史数据源": "Trying NOAA ISD global historical source",
             "尝试 Meteostat 备用数据源": "Trying Meteostat fallback source",
